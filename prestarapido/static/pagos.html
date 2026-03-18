@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Historial de Pagos — PrestaRápido</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .metodo-icon { font-size: 1.25rem; }
+    .pago-card {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 1rem; border-radius: var(--radio);
+      border: 1px solid var(--gris-suave);
+      margin-bottom: 0.6rem; background: #fff;
+      transition: box-shadow 0.15s;
+    }
+    .pago-card:hover { box-shadow: var(--sombra); }
+    .pago-icono {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: rgba(37,99,235,0.08);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .pago-info { flex: 1; }
+    .pago-monto { font-weight: 700; font-size: 1.05rem; color: var(--verde); }
+    .pago-meta { font-size: 0.8rem; color: var(--gris-texto); }
+    .pago-ref { font-family: 'Space Mono', monospace; font-size: 0.775rem; color: var(--gris-texto); }
+    .pago-fecha { font-size: 0.875rem; font-weight: 600; color: var(--azul-oscuro); text-align: right; white-space: nowrap; }
+
+    .resumen-cuota {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 1rem;
+      padding: 1.25rem;
+      background: linear-gradient(135deg, var(--azul-oscuro), var(--azul-medio));
+      border-radius: var(--radio-grande);
+      margin-bottom: 1.5rem;
+    }
+    .res-item { color: rgba(248,250,255,0.7); }
+    .res-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.3rem; }
+    .res-val { font-size: 1.1rem; font-weight: 700; color: #fff; font-family: 'Space Mono', monospace; }
+
+    .metodo-badge {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      background: rgba(37,99,235,0.08); color: var(--azul-acento);
+      border-radius: 99px; padding: 0.2rem 0.65rem;
+      font-size: 0.775rem; font-weight: 600; text-transform: capitalize;
+    }
+
+    .empty-pagos {
+      text-align: center; padding: 2.5rem 1rem;
+      background: var(--gris-suave); border-radius: var(--radio-grande);
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/static/dashboard.html" class="navbar-logo">Presta<span>Rápido</span></a>
+  <div class="navbar-links">
+    <a href="/static/dashboard.html">Inicio</a>
+    <a href="/static/solicitar.html">Solicitar Crédito</a>
+    <a href="/static/prestamos.html">Mis Préstamos</a>
+    <a href="/static/perfil.html">Mi Perfil</a>
+    <a href="#" onclick="cerrarSesion()" class="btn-logout">Salir</a>
+  </div>
+</nav>
+
+<div class="page-wrapper fade-up">
+
+  <!-- Breadcrumb -->
+  <div style="font-size:0.825rem;color:var(--gris-texto);margin-bottom:1.25rem">
+    <a href="/static/prestamos.html" style="color:var(--azul-acento);text-decoration:none">Mis Préstamos</a>
+    <span id="bc-prestamo"></span>
+    <span style="color:var(--azul-oscuro);font-weight:600"> › Historial de pagos</span>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
+    <div>
+      <h1 class="section-title" style="margin-bottom:0.25rem" id="titulo-cuota">Cargando...</h1>
+      <p class="section-sub" style="margin-bottom:0" id="sub-cuota"></p>
+    </div>
+    <button class="btn btn-primary btn-sm" id="btn-nuevo-pago" onclick="abrirModalPago()" style="display:none">
+      + Registrar pago
+    </button>
+  </div>
+
+  <!-- Resumen de la cuota -->
+  <div class="resumen-cuota" id="resumen-cuota" style="display:none">
+    <div class="res-item">
+      <div class="res-label">Monto cuota</div>
+      <div class="res-val" id="r-monto">—</div>
+    </div>
+    <div class="res-item">
+      <div class="res-label">Vencimiento</div>
+      <div class="res-val" id="r-fecha" style="font-size:0.9rem">—</div>
+    </div>
+    <div class="res-item">
+      <div class="res-label">Estado</div>
+      <div class="res-val" id="r-estado">—</div>
+    </div>
+    <div class="res-item">
+      <div class="res-label">Total pagado</div>
+      <div class="res-val" id="r-pagado" style="color:#86efac">—</div>
+    </div>
+  </div>
+
+  <!-- Lista de pagos -->
+  <div class="card">
+    <div style="font-weight:700;font-size:1rem;color:var(--azul-oscuro);margin-bottom:1.25rem">
+      Pagos registrados
+    </div>
+    <div id="lista-pagos">
+      <div class="empty-state"><p>Cargando...</p></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal registrar pago -->
+<div id="modal-pago" style="display:none;position:fixed;inset:0;background:rgba(13,27,62,0.5);z-index:200;align-items:center;justify-content:center">
+  <div class="card" style="width:100%;max-width:420px;margin:1rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+      <h2 style="font-size:1.1rem;font-weight:700">Registrar pago</h2>
+      <button onclick="cerrarModal()" style="background:none;border:none;font-size:1.25rem;cursor:pointer;color:var(--gris-texto)">✕</button>
+    </div>
+    <div class="alert" id="alerta-modal"></div>
+    <div class="form-grid una-col">
+      <div class="form-group">
+        <label for="m-monto">Monto a pagar (COP)</label>
+        <input type="number" id="m-monto" min="1000" step="1000" placeholder="250000">
+      </div>
+      <div class="form-group">
+        <label for="m-metodo">Método de pago</label>
+        <select id="m-metodo">
+          <option value="transferencia">🏦 Transferencia bancaria</option>
+          <option value="efectivo">💵 Efectivo</option>
+          <option value="pse">🔒 PSE</option>
+          <option value="nequi">📱 Nequi / Daviplata</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="m-ref">Referencia de transacción (opcional)</label>
+        <input type="text" id="m-ref" placeholder="Ej: TXN-20260318-001">
+      </div>
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-top:1.25rem">
+      <button class="btn btn-secondary" style="flex:1" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" id="btn-confirmar-pago" onclick="confirmarPago()">Confirmar pago</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = '';
+  const params = new URLSearchParams(location.search);
+  const cuotaId = params.get('cuota');
+  const prestamoId = params.get('prestamo');
+  let montoCuota = 0;
+
+  function cerrarSesion() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
+    window.location.href = '/static/login.html';
+  }
+
+  function fmt(num) {
+    return new Intl.NumberFormat('es-CO', { style:'currency', currency:'COP', maximumFractionDigits:0 }).format(num);
+  }
+
+  function fmtFecha(dt) {
+    if (!dt) return '—';
+    return new Date(dt + (dt.includes('T') ? '' : 'T00:00:00'))
+      .toLocaleDateString('es-CO', { day:'2-digit', month:'long', year:'numeric' });
+  }
+
+  function fmtDatetime(dt) {
+    if (!dt) return '—';
+    return new Date(dt).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  }
+
+  const metodosIcono = {
+    transferencia: '🏦',
+    efectivo: '💵',
+    pse: '🔒',
+    nequi: '📱',
+    daviplata: '📱',
+  };
+
+  function abrirModalPago() {
+    document.getElementById('m-monto').value = montoCuota || '';
+    document.getElementById('modal-pago').style.display = 'flex';
+  }
+  function cerrarModal() {
+    document.getElementById('modal-pago').style.display = 'none';
+    document.getElementById('alerta-modal').className = 'alert';
+  }
+
+  function mostrarAlerta(id, msg, tipo = 'error') {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.className = `alert alert-${tipo} show`;
+  }
+
+  // ── Cargar cuota ──
+  async function cargarCuota() {
+    if (!cuotaId) return window.location.href = '/static/prestamos.html';
+
+    try {
+      const res = await fetch(`${API}/cuotas/${cuotaId}`);
+      const c = await res.json();
+      if (!res.ok) throw new Error();
+
+      montoCuota = parseFloat(c.monto_cuota);
+
+      document.getElementById('titulo-cuota').textContent = `Cuota #${c.numero_cuota}`;
+      document.getElementById('sub-cuota').textContent =
+        `Monto: ${fmt(c.monto_cuota)} — Vence: ${fmtFecha(c.fecha_vencimiento)}`;
+
+      if (prestamoId) {
+        document.getElementById('bc-prestamo').innerHTML =
+          ` › <a href="/static/cuotas.html?id=${prestamoId}" style="color:var(--azul-acento);text-decoration:none">Cuotas</a>`;
+      }
+
+      // Resumen
+      document.getElementById('r-monto').textContent = fmt(c.monto_cuota);
+      document.getElementById('r-fecha').textContent = fmtFecha(c.fecha_vencimiento);
+      document.getElementById('r-estado').innerHTML =
+        `<span class="badge badge-${c.estado_cuota === 'pagada' ? 'pagada' : c.estado_cuota === 'vencida' ? 'vencida' : 'pendiente'}">${c.estado_cuota}</span>`;
+      document.getElementById('resumen-cuota').style.display = 'grid';
+
+      if (c.estado_cuota !== 'pagada') {
+        document.getElementById('btn-nuevo-pago').style.display = 'inline-flex';
+      }
+
+      await cargarPagos();
+    } catch {
+      document.getElementById('lista-pagos').innerHTML =
+        `<div class="alert alert-error show">Error al cargar la cuota.</div>`;
+    }
+  }
+
+  // ── Cargar pagos ──
+  async function cargarPagos() {
+    try {
+      const res = await fetch(`${API}/cuotas/${cuotaId}/pagos`);
+      const pagos = await res.json();
+
+      const totalPagado = pagos.reduce((s, p) => s + parseFloat(p.monto_pagado), 0);
+      document.getElementById('r-pagado').textContent = fmt(totalPagado);
+
+      const contenedor = document.getElementById('lista-pagos');
+
+      if (pagos.length === 0) {
+        contenedor.innerHTML = `
+          <div class="empty-pagos">
+            <div style="font-size:2rem;margin-bottom:0.75rem">📭</div>
+            <p style="color:var(--gris-texto);font-size:0.9rem">No hay pagos registrados para esta cuota.</p>
+            <button class="btn btn-primary btn-sm" style="margin-top:1rem" onclick="abrirModalPago()">Registrar primer pago</button>
+          </div>`;
+        return;
+      }
+
+      contenedor.innerHTML = pagos.map(p => {
+        const icono = metodosIcono[p.metodo_pago] || '💳';
+        return `
+          <div class="pago-card">
+            <div class="pago-icono">${icono}</div>
+            <div class="pago-info">
+              <div class="pago-monto">${fmt(p.monto_pagado)}</div>
+              <div class="pago-meta" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-top:0.2rem">
+                <span class="metodo-badge">${icono} ${p.metodo_pago}</span>
+                ${p.referencia_transaccion ? `<span class="pago-ref">Ref: ${p.referencia_transaccion}</span>` : ''}
+              </div>
+            </div>
+            <div class="pago-fecha">${fmtDatetime(p.fecha_pago)}</div>
+          </div>
+        `;
+      }).join('');
+
+    } catch {
+      document.getElementById('lista-pagos').innerHTML =
+        `<div class="alert alert-error show">Error al cargar los pagos.</div>`;
+    }
+  }
+
+  // ── Confirmar pago ──
+  async function confirmarPago() {
+    const btn = document.getElementById('btn-confirmar-pago');
+    const monto = parseFloat(document.getElementById('m-monto').value);
+    if (!monto || monto <= 0) return mostrarAlerta('alerta-modal', 'Ingresa un monto válido');
+
+    btn.innerHTML = '<span class="loader"></span>';
+    btn.disabled = true;
+
+    const payload = {
+      cuota_id: cuotaId,
+      monto_pagado: monto,
+      metodo_pago: document.getElementById('m-metodo').value,
+      referencia_transaccion: document.getElementById('m-ref').value || null
+    };
+
+    try {
+      const res = await fetch(`${API}/pagos/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error al registrar pago');
+      cerrarModal();
+      await cargarCuota();
+    } catch (err) {
+      mostrarAlerta('alerta-modal', err.message);
+      btn.innerHTML = 'Confirmar pago';
+      btn.disabled = false;
+    }
+  }
+
+  if (!localStorage.getItem('usuario')) window.location.href = '/static/login.html';
+  cargarCuota();
+</script>
+</body>
+</html>

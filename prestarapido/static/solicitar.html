@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solicitar Crédito — PrestaRápido</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/static/dashboard.html" class="navbar-logo">Presta<span>Rápido</span></a>
+  <div class="navbar-links">
+    <a href="/static/dashboard.html">Inicio</a>
+    <a href="/static/solicitar.html" class="active">Solicitar Crédito</a>
+    <a href="/static/prestamos.html">Mis Préstamos</a>
+    <a href="/static/perfil.html">Mi Perfil</a>
+    <a href="#" onclick="cerrarSesion()" class="btn-logout">Salir</a>
+  </div>
+</nav>
+
+<div class="page-wrapper fade-up">
+  <h1 class="section-title">Solicitar un crédito</h1>
+  <p class="section-sub">Completa el formulario. El simulador calculará automáticamente los totales.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+
+    <!-- Formulario -->
+    <div class="card">
+      <div class="alert" id="alerta"></div>
+
+      <form id="form-solicitud">
+        <div class="form-grid una-col">
+          <div class="form-group">
+            <label for="monto">Monto a solicitar (COP)</label>
+            <input type="number" id="monto" placeholder="500000" min="100000" step="50000" required oninput="simular()">
+          </div>
+          <div class="form-group">
+            <label for="cuotas">Número de cuotas</label>
+            <select id="cuotas" required onchange="simular()">
+              <option value="">Selecciona...</option>
+              <option value="1">1 mes</option>
+              <option value="2">2 meses</option>
+              <option value="3">3 meses</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="tasa">Tasa de interés mensual (%)</label>
+            <select id="tasa" required onchange="simular()">
+              <option value="">Selecciona según tu score...</option>
+              <option value="1.5">1.5% — Score Alto 🟢</option>
+              <option value="2.8">2.8% — Score Medio 🟡</option>
+              <option value="4.2">4.2% — Score Alto riesgo 🔴</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="metodo">Método de pago</label>
+            <select id="metodo" required>
+              <option value="">Selecciona...</option>
+              <option value="transferencia">Transferencia bancaria</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="pse">PSE</option>
+              <option value="nequi">Nequi / Daviplata</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-top:1.5rem">
+          <button type="submit" class="btn btn-primary btn-full" id="btn-solicitar">
+            Enviar solicitud
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Simulador -->
+    <div>
+      <div class="card" style="margin-bottom:1rem">
+        <div style="font-weight:700;font-size:1rem;margin-bottom:0.5rem;color:var(--azul-oscuro)">📊 Simulador de crédito</div>
+        <p style="font-size:0.85rem;color:var(--gris-texto)">Los valores se calculan automáticamente al llenar el formulario.</p>
+      </div>
+
+      <div class="simulador-resultado" id="simulador">
+        <div class="sim-row">
+          <span class="sim-label">Monto solicitado</span>
+          <span class="sim-val" id="s-monto">—</span>
+        </div>
+        <div class="sim-row">
+          <span class="sim-label">Tasa mensual</span>
+          <span class="sim-val" id="s-tasa">—</span>
+        </div>
+        <div class="sim-row">
+          <span class="sim-label">Interés total</span>
+          <span class="sim-val" id="s-interes">—</span>
+        </div>
+        <div class="sim-row">
+          <span class="sim-label">Cuotas</span>
+          <span class="sim-val" id="s-cuotas">—</span>
+        </div>
+        <div class="sim-row">
+          <span class="sim-label">Valor de cada cuota</span>
+          <span class="sim-val" id="s-cuota-val">—</span>
+        </div>
+        <div class="sim-row">
+          <span class="sim-label">Total a pagar</span>
+          <span class="sim-val grande" id="s-total">—</span>
+        </div>
+      </div>
+
+      <!-- Condiciones -->
+      <div class="card" style="margin-top:1rem;background:var(--azul-claro);border-color:var(--azul-acento)">
+        <div style="font-weight:700;font-size:0.875rem;color:var(--azul-medio);margin-bottom:0.75rem">📋 Condiciones de elegibilidad</div>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:0.5rem;font-size:0.825rem;color:var(--azul-medio)">
+          <li>✅ Edad entre 21 y 65 años</li>
+          <li>✅ Ingreso mensual mayor a $0</li>
+          <li>✅ Score crediticio evaluado automáticamente</li>
+          <li>✅ Plazo máximo: 3 meses</li>
+          <li>✅ Sin reportes en centrales de riesgo</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = '';
+
+  function cerrarSesion() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
+    window.location.href = '/static/login.html';
+  }
+
+  function fmt(num) {
+    return new Intl.NumberFormat('es-CO', { style:'currency', currency:'COP', maximumFractionDigits:0 }).format(num);
+  }
+
+  function simular() {
+    const monto = parseFloat(document.getElementById('monto').value) || 0;
+    const cuotas = parseInt(document.getElementById('cuotas').value) || 0;
+    const tasa = parseFloat(document.getElementById('tasa').value) || 0;
+
+    if (!monto || !cuotas || !tasa) return;
+
+    const interes = monto * (tasa / 100) * cuotas;
+    const total = monto + interes;
+    const cuotaVal = total / cuotas;
+
+    document.getElementById('s-monto').textContent = fmt(monto);
+    document.getElementById('s-tasa').textContent = `${tasa}%`;
+    document.getElementById('s-interes').textContent = fmt(interes);
+    document.getElementById('s-cuotas').textContent = cuotas;
+    document.getElementById('s-cuota-val').textContent = fmt(cuotaVal);
+    document.getElementById('s-total').textContent = fmt(total);
+
+    const sim = document.getElementById('simulador');
+    sim.classList.add('show');
+  }
+
+  function mostrar(msg, tipo = 'error') {
+    const el = document.getElementById('alerta');
+    el.textContent = msg;
+    el.className = `alert alert-${tipo} show`;
+    el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+
+  document.getElementById('form-solicitud').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-solicitar');
+
+    const raw = localStorage.getItem('usuario');
+    if (!raw) return window.location.href = '/static/login.html';
+    const usuario = JSON.parse(raw);
+    const token = localStorage.getItem('token');
+
+    const monto = parseFloat(document.getElementById('monto').value);
+    const cuotas = parseInt(document.getElementById('cuotas').value);
+    const tasa = parseFloat(document.getElementById('tasa').value);
+
+    if (cuotas > 3) return mostrar('El plazo máximo permitido es de 3 meses.');
+
+    btn.innerHTML = '<span class="loader"></span> Enviando solicitud...';
+    btn.disabled = true;
+
+    const payload = {
+      usuario_id: usuario.id,
+      monto: monto,
+      tasa_interes: tasa,
+      cantidad_cuotas: cuotas,
+      estado: 'pendiente'
+    };
+
+    try {
+      const res = await fetch(`${API}/prestamos/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error al crear la solicitud');
+
+      mostrar('¡Solicitud enviada exitosamente! Redirigiendo a tus préstamos...', 'success');
+      setTimeout(() => window.location.href = '/static/prestamos.html', 2000);
+    } catch (err) {
+      mostrar(err.message);
+      btn.innerHTML = 'Enviar solicitud';
+      btn.disabled = false;
+    }
+  });
+
+  // Verificar sesión
+  if (!localStorage.getItem('usuario')) window.location.href = '/static/login.html';
+</script>
+</body>
+</html>

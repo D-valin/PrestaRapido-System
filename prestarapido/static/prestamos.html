@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mis Préstamos — PrestaRápido</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/static/dashboard.html" class="navbar-logo">Presta<span>Rápido</span></a>
+  <div class="navbar-links">
+    <a href="/static/dashboard.html">Inicio</a>
+    <a href="/static/solicitar.html">Solicitar Crédito</a>
+    <a href="/static/prestamos.html" class="active">Mis Préstamos</a>
+    <a href="/static/perfil.html">Mi Perfil</a>
+    <a href="#" onclick="cerrarSesion()" class="btn-logout">Salir</a>
+  </div>
+</nav>
+
+<div class="page-wrapper fade-up">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2rem;flex-wrap:wrap;gap:1rem">
+    <div>
+      <h1 class="section-title" style="margin-bottom:0.25rem">Mis Préstamos</h1>
+      <p class="section-sub" style="margin-bottom:0">Historial completo de tus solicitudes de crédito.</p>
+    </div>
+    <a href="/static/solicitar.html" class="btn btn-primary">+ Nuevo crédito</a>
+  </div>
+
+  <!-- Filtro de estado -->
+  <div style="display:flex;gap:0.5rem;margin-bottom:1.5rem;flex-wrap:wrap">
+    <button class="btn btn-secondary btn-sm filtro activo" data-estado="">Todos</button>
+    <button class="btn btn-secondary btn-sm filtro" data-estado="pendiente">Pendientes</button>
+    <button class="btn btn-secondary btn-sm filtro" data-estado="aprobado">Aprobados</button>
+    <button class="btn btn-secondary btn-sm filtro" data-estado="activo">Activos</button>
+    <button class="btn btn-secondary btn-sm filtro" data-estado="rechazado">Rechazados</button>
+  </div>
+
+  <div class="card" id="contenedor">
+    <div class="empty-state">
+      <div class="icon">⏳</div>
+      <p>Cargando préstamos...</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = '';
+  let todosLosPrestamos = [];
+
+  function cerrarSesion() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
+    window.location.href = '/static/login.html';
+  }
+
+  function badge(estado) {
+    const map = { pendiente:'badge-pendiente', aprobado:'badge-aprobado', rechazado:'badge-rechazado', activo:'badge-activo' };
+    return `<span class="badge ${map[estado] || 'badge-pendiente'}">${estado}</span>`;
+  }
+
+  function fmt(num) {
+    return new Intl.NumberFormat('es-CO', { style:'currency', currency:'COP', maximumFractionDigits:0 }).format(num);
+  }
+
+  function fmtFecha(dt) {
+    if (!dt) return '—';
+    return new Date(dt).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' });
+  }
+
+  function renderizar(prestamos) {
+    const contenedor = document.getElementById('contenedor');
+    if (prestamos.length === 0) {
+      contenedor.innerHTML = `<div class="empty-state"><div class="icon">💳</div><p>No hay préstamos en esta categoría. <a href="/static/solicitar.html" style="color:var(--azul-acento)">Solicita uno</a></p></div>`;
+      return;
+    }
+
+    contenedor.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Monto</th>
+              <th>Tasa mensual</th>
+              <th>Cuotas</th>
+              <th>Estado</th>
+              <th>Desembolso</th>
+              <th>Próx. Vencimiento</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${prestamos.map((p, i) => `
+              <tr>
+                <td class="td-mono">${i + 1}</td>
+                <td><strong>${fmt(p.monto)}</strong></td>
+                <td>${p.tasa_interes}%</td>
+                <td>${p.cantidad_cuotas}</td>
+                <td>${badge(p.estado)}</td>
+                <td>${fmtFecha(p.fecha_desembolso)}</td>
+                <td>${fmtFecha(p.proximo_vencimiento)}</td>
+                <td>
+                  <a href="/static/cuotas.html?id=${p.id}" class="btn btn-secondary btn-sm">Ver cuotas</a>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  async function cargar() {
+    const raw = localStorage.getItem('usuario');
+    if (!raw) return window.location.href = '/static/login.html';
+    const usuario = JSON.parse(raw);
+
+    try {
+      const res = await fetch(`${API}/usuarios/${usuario.id}/prestamos`);
+      todosLosPrestamos = await res.json();
+      renderizar(todosLosPrestamos);
+    } catch {
+      document.getElementById('contenedor').innerHTML = `<div class="alert alert-error show">Error al cargar los préstamos.</div>`;
+    }
+  }
+
+  // Filtros
+  document.querySelectorAll('.filtro').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filtro').forEach(b => b.classList.remove('activo'));
+      btn.classList.add('activo');
+      const estado = btn.dataset.estado;
+      const filtrados = estado ? todosLosPrestamos.filter(p => p.estado === estado) : todosLosPrestamos;
+      renderizar(filtrados);
+    });
+  });
+
+  // Estilos filtro activo
+  const style = document.createElement('style');
+  style.textContent = `.filtro.activo { background: var(--azul-oscuro); color: #fff; }`;
+  document.head.appendChild(style);
+
+  cargar();
+</script>
+</body>
+</html>

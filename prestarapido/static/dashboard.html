@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — PrestaRápido</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <a href="/static/dashboard.html" class="navbar-logo">Presta<span>Rápido</span></a>
+  <div class="navbar-links">
+    <a href="/static/dashboard.html" class="active">Inicio</a>
+    <a href="/static/solicitar.html">Solicitar Crédito</a>
+    <a href="/static/prestamos.html">Mis Préstamos</a>
+    <a href="/static/perfil.html">Mi Perfil</a>
+    <a href="#" onclick="cerrarSesion()" class="btn-logout">Salir</a>
+  </div>
+</nav>
+
+<div class="page-wrapper fade-up">
+
+  <!-- Promo banner -->
+  <div class="promo-banner">
+    <div class="promo-icon">🎉</div>
+    <div>
+      <div class="promo-titulo">¡Promo de Temporada!</div>
+      <div class="promo-desc">Tasa preferencial de 1.5% mensual para clientes con score crediticio alto. Válida hasta fin de mes.</div>
+    </div>
+  </div>
+
+  <!-- Saludo -->
+  <div style="margin-bottom:1.5rem">
+    <h1 class="section-title" id="saludo">Bienvenido</h1>
+    <p class="section-sub">Aquí está el resumen de tu actividad financiera.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid" id="stats">
+    <div class="stat-card">
+      <div class="stat-label">Préstamos activos</div>
+      <div class="stat-value azul" id="stat-activos">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total prestado</div>
+      <div class="stat-value" id="stat-total">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Cuotas pendientes</div>
+      <div class="stat-value" id="stat-cuotas">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Próximo vencimiento</div>
+      <div class="stat-value" id="stat-venc" style="font-size:1rem">—</div>
+    </div>
+  </div>
+
+  <!-- Últimos préstamos -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+      <div>
+        <div class="section-title" style="margin-bottom:0">Mis préstamos recientes</div>
+      </div>
+      <a href="/static/solicitar.html" class="btn btn-primary btn-sm">+ Solicitar crédito</a>
+    </div>
+
+    <div id="lista-prestamos">
+      <div class="empty-state">
+        <div class="icon">💳</div>
+        <p>Cargando préstamos...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = '';
+
+  function cerrarSesion() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
+    window.location.href = '/static/login.html';
+  }
+
+  function badge(estado) {
+    const map = { pendiente:'badge-pendiente', aprobado:'badge-aprobado', rechazado:'badge-rechazado', activo:'badge-activo' };
+    return `<span class="badge ${map[estado] || 'badge-pendiente'}">${estado}</span>`;
+  }
+
+  function fmt(num) {
+    return new Intl.NumberFormat('es-CO', { style:'currency', currency:'COP', maximumFractionDigits:0 }).format(num);
+  }
+
+  function fmtFecha(dt) {
+    if (!dt) return '—';
+    return new Date(dt).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' });
+  }
+
+  async function cargar() {
+    const raw = localStorage.getItem('usuario');
+    if (!raw) return window.location.href = '/static/login.html';
+    const usuario = JSON.parse(raw);
+
+    document.getElementById('saludo').textContent = `Hola, ${usuario.nombre_completo.split(' ')[0]} 👋`;
+
+    try {
+      const res = await fetch(`${API}/usuarios/${usuario.id}/prestamos`);
+      const prestamos = await res.json();
+
+      // Stats
+      const activos = prestamos.filter(p => p.estado === 'activo' || p.estado === 'aprobado').length;
+      const total = prestamos.reduce((s, p) => s + parseFloat(p.monto), 0);
+      const proxVenc = prestamos
+        .filter(p => p.proximo_vencimiento)
+        .sort((a,b) => new Date(a.proximo_vencimiento) - new Date(b.proximo_vencimiento))[0];
+
+      document.getElementById('stat-activos').textContent = activos;
+      document.getElementById('stat-total').textContent = fmt(total);
+      document.getElementById('stat-cuotas').textContent = prestamos.filter(p => p.estado === 'activo').length;
+      document.getElementById('stat-venc').textContent = proxVenc ? fmtFecha(proxVenc.proximo_vencimiento) : 'Sin vencimientos';
+
+      // Lista
+      const contenedor = document.getElementById('lista-prestamos');
+      if (prestamos.length === 0) {
+        contenedor.innerHTML = `<div class="empty-state"><div class="icon">💳</div><p>Aún no tienes préstamos. <a href="/static/solicitar.html" style="color:var(--azul-acento)">Solicita tu primer crédito</a></p></div>`;
+        return;
+      }
+
+      contenedor.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Monto</th>
+                <th>Tasa</th>
+                <th>Cuotas</th>
+                <th>Estado</th>
+                <th>Próx. Vencimiento</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${prestamos.slice(0,5).map(p => `
+                <tr>
+                  <td><strong>${fmt(p.monto)}</strong></td>
+                  <td>${p.tasa_interes}%</td>
+                  <td>${p.cantidad_cuotas}</td>
+                  <td>${badge(p.estado)}</td>
+                  <td>${fmtFecha(p.proximo_vencimiento)}</td>
+                  <td><a href="/static/cuotas.html?id=${p.id}" class="btn btn-secondary btn-sm">Ver cuotas</a></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ${prestamos.length > 5 ? `<div style="text-align:center;margin-top:1rem"><a href="/static/prestamos.html" class="btn btn-secondary btn-sm">Ver todos (${prestamos.length})</a></div>` : ''}
+      `;
+    } catch {
+      document.getElementById('lista-prestamos').innerHTML = `<div class="alert alert-error show">Error al cargar los préstamos.</div>`;
+    }
+  }
+
+  cargar();
+</script>
+</body>
+</html>

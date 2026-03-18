@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recuperar Contraseña — PrestaRápido</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .step-indicator {
+      display: flex; align-items: center; gap: 0; margin-bottom: 2rem;
+    }
+    .step {
+      display: flex; align-items: center; gap: 0.5rem; font-size: 0.825rem;
+      font-weight: 600; color: #aab4cc;
+    }
+    .step.activo { color: var(--azul-acento); }
+    .step.hecho { color: var(--verde); }
+    .step-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--gris-suave); color: #aab4cc;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 700; flex-shrink: 0;
+    }
+    .step.activo .step-num { background: var(--azul-acento); color: #fff; }
+    .step.hecho .step-num { background: var(--verde); color: #fff; }
+    .step-linea { flex: 1; height: 2px; background: var(--gris-suave); margin: 0 0.5rem; }
+    .step-linea.activa { background: var(--azul-acento); }
+
+    .paso { display: none; }
+    .paso.activo { display: block; animation: fadeUp 0.35s ease; }
+
+    .exito-icon {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: rgba(22,163,74,0.1); border: 2px solid rgba(22,163,74,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; margin: 0 auto 1.25rem;
+    }
+  </style>
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card fade-up" style="max-width:480px">
+    <div class="auth-logo">Presta<span>Rápido</span></div>
+    <p class="auth-subtitle">Recuperación de contraseña</p>
+
+    <!-- Indicador de pasos -->
+    <div class="step-indicator">
+      <div class="step activo" id="ind-1">
+        <div class="step-num">1</div>
+        Verificar identidad
+      </div>
+      <div class="step-linea" id="linea-1-2"></div>
+      <div class="step" id="ind-2">
+        <div class="step-num">2</div>
+        Nueva contraseña
+      </div>
+      <div class="step-linea" id="linea-2-3"></div>
+      <div class="step" id="ind-3">
+        <div class="step-num">3</div>
+        ¡Listo!
+      </div>
+    </div>
+
+    <div class="alert" id="alerta"></div>
+
+    <!-- Paso 1: Verificar identidad -->
+    <div class="paso activo" id="paso-1">
+      <p style="font-size:0.875rem;color:var(--gris-texto);margin-bottom:1.5rem">
+        Ingresa tu correo y número de documento para verificar tu identidad.
+      </p>
+      <form id="form-verificar">
+        <div class="form-grid una-col">
+          <div class="form-group">
+            <label for="rec-email">Correo electrónico registrado</label>
+            <input type="email" id="rec-email" placeholder="usuario@correo.com" required>
+          </div>
+          <div class="form-group">
+            <label for="rec-documento">Número de documento</label>
+            <input type="text" id="rec-documento" placeholder="1234567890" required>
+          </div>
+        </div>
+        <div style="margin-top:1.5rem; display:flex; flex-direction:column; gap:0.75rem">
+          <button type="submit" class="btn btn-primary btn-full" id="btn-verificar">
+            Verificar identidad
+          </button>
+          <a href="/static/login.html" class="btn btn-secondary btn-full" style="text-align:center">
+            Volver al inicio de sesión
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <!-- Paso 2: Nueva contraseña -->
+    <div class="paso" id="paso-2">
+      <p style="font-size:0.875rem;color:var(--gris-texto);margin-bottom:1.5rem">
+        Identidad verificada ✓ Ahora elige una nueva contraseña segura.
+      </p>
+      <form id="form-nueva-pass">
+        <div class="form-grid una-col">
+          <div class="form-group">
+            <label for="nueva-pass">Nueva contraseña</label>
+            <div style="position:relative">
+              <input type="password" id="nueva-pass" placeholder="Mínimo 8 caracteres"
+                required minlength="8" oninput="validarReqs()" style="padding-right:2.5rem">
+              <button type="button" onclick="toggleVer('nueva-pass')"
+                style="position:absolute;right:0.75rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--gris-texto)">👁</button>
+            </div>
+            <div style="font-size:0.8rem;margin-top:0.4rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+              <span id="req-len" style="color:#aab4cc">✗ 8+ caracteres</span>
+              <span id="req-num" style="color:#aab4cc">✗ Un número</span>
+              <span id="req-may" style="color:#aab4cc">✗ Una mayúscula</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="confirmar-pass">Confirmar contraseña</label>
+            <div style="position:relative">
+              <input type="password" id="confirmar-pass" placeholder="Repite la contraseña"
+                required style="padding-right:2.5rem">
+              <button type="button" onclick="toggleVer('confirmar-pass')"
+                style="position:absolute;right:0.75rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--gris-texto)">👁</button>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:1.5rem">
+          <button type="submit" class="btn btn-primary btn-full" id="btn-cambiar">
+            Cambiar contraseña
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Paso 3: Éxito -->
+    <div class="paso" id="paso-3" style="text-align:center">
+      <div class="exito-icon">✓</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--azul-oscuro);margin-bottom:0.5rem">
+        ¡Contraseña actualizada!
+      </div>
+      <p style="font-size:0.875rem;color:var(--gris-texto);margin-bottom:1.5rem">
+        Tu contraseña fue cambiada exitosamente. Ya puedes iniciar sesión con tus nuevas credenciales.
+      </p>
+      <a href="/static/login.html" class="btn btn-primary btn-full">Ir a iniciar sesión</a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const API = '';
+  let emailVerificado = '';
+  let documentoVerificado = '';
+
+  function toggleVer(id) {
+    const inp = document.getElementById(id);
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  }
+
+  function mostrar(msg, tipo = 'error') {
+    const el = document.getElementById('alerta');
+    el.textContent = msg;
+    el.className = `alert alert-${tipo} show`;
+  }
+
+  function ocultarAlerta() {
+    document.getElementById('alerta').className = 'alert';
+  }
+
+  function irPaso(num) {
+    document.querySelectorAll('.paso').forEach(p => p.classList.remove('activo'));
+    document.getElementById(`paso-${num}`).classList.add('activo');
+
+    // Actualizar indicadores
+    for (let i = 1; i <= 3; i++) {
+      const ind = document.getElementById(`ind-${i}`);
+      ind.className = 'step' + (i < num ? ' hecho' : i === num ? ' activo' : '');
+      if (i < 3) {
+        const linea = document.getElementById(`linea-${i}-${i+1}`);
+        linea.className = 'step-linea' + (i < num ? ' activa' : '');
+      }
+    }
+
+    ocultarAlerta();
+  }
+
+  function validarReqs() {
+    const val = document.getElementById('nueva-pass').value;
+    const actualizar = (id, cond, txt) => {
+      const el = document.getElementById(id);
+      el.style.color = cond ? 'var(--verde)' : '#aab4cc';
+      el.textContent = (cond ? '✓' : '✗') + ' ' + txt;
+    };
+    actualizar('req-len', val.length >= 8, '8+ caracteres');
+    actualizar('req-num', /\d/.test(val), 'Un número');
+    actualizar('req-may', /[A-Z]/.test(val), 'Una mayúscula');
+  }
+
+  // ── Paso 1: Verificar identidad (sólo front, sin llamada) ──
+  // Guardamos los datos y pasamos al paso 2.
+  // La verificación real se hace al enviar la nueva contraseña.
+  document.getElementById('form-verificar').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-verificar');
+    btn.innerHTML = '<span class="loader"></span> Verificando...';
+    btn.disabled = true;
+
+    emailVerificado = document.getElementById('rec-email').value.trim();
+    documentoVerificado = document.getElementById('rec-documento').value.trim();
+
+    // Verificamos contra el backend que el par existe
+    try {
+      const res = await fetch(`${API}/auth/recuperar-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailVerificado,
+          documento_identidad: documentoVerificado,
+          password_nueva: '__verificacion_temp__'  // placeholder; el backend detectará el par
+        })
+      });
+      // Si 404 → credenciales no encontradas
+      if (res.status === 404) {
+        const data = await res.json();
+        throw new Error(data.detail);
+      }
+      // Si ok o cualquier otro estado → el par existe, continuar
+      irPaso(2);
+    } catch (err) {
+      mostrar(err.message);
+    }
+
+    btn.innerHTML = 'Verificar identidad';
+    btn.disabled = false;
+  });
+
+  // ── Paso 2: Cambiar contraseña ──
+  document.getElementById('form-nueva-pass').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-cambiar');
+
+    const nueva = document.getElementById('nueva-pass').value;
+    const confirmar = document.getElementById('confirmar-pass').value;
+    if (nueva !== confirmar) return mostrar('Las contraseñas no coinciden');
+    if (nueva === '__verificacion_temp__') return mostrar('Contraseña no permitida');
+
+    btn.innerHTML = '<span class="loader"></span> Guardando...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(`${API}/auth/recuperar-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailVerificado,
+          documento_identidad: documentoVerificado,
+          password_nueva: nueva
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error al cambiar contraseña');
+      irPaso(3);
+    } catch (err) {
+      mostrar(err.message);
+      btn.innerHTML = 'Cambiar contraseña';
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

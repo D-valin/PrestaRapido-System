@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuotas del Préstamo — PrestaRápido</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/static/dashboard.html" class="navbar-logo">Presta<span>Rápido</span></a>
+  <div class="navbar-links">
+    <a href="/static/dashboard.html">Inicio</a>
+    <a href="/static/solicitar.html">Solicitar Crédito</a>
+    <a href="/static/prestamos.html">Mis Préstamos</a>
+    <a href="/static/perfil.html">Mi Perfil</a>
+    <a href="#" onclick="cerrarSesion()" class="btn-logout">Salir</a>
+  </div>
+</nav>
+
+<div class="page-wrapper fade-up">
+
+  <!-- Info del préstamo -->
+  <div class="card" id="info-prestamo" style="margin-bottom:1.5rem">
+    <div class="empty-state"><p>Cargando...</p></div>
+  </div>
+
+  <!-- Cuotas -->
+  <div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div>
+        <div class="section-title" style="margin-bottom:0">Cuotas del préstamo</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="abrirModalCuota()">+ Añadir cuota</button>
+    </div>
+
+    <div id="lista-cuotas">
+      <div class="empty-state"><div class="icon">⏳</div><p>Cargando cuotas...</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal añadir cuota -->
+<div id="modal-cuota" style="display:none;position:fixed;inset:0;background:rgba(13,27,62,0.5);z-index:200;display:none;align-items:center;justify-content:center">
+  <div class="card" style="width:100%;max-width:420px;margin:1rem">
+    <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:1.25rem">Añadir cuota</h2>
+    <div class="alert" id="alerta-cuota"></div>
+    <div class="form-grid una-col">
+      <div class="form-group">
+        <label for="num-cuota">Número de cuota</label>
+        <input type="number" id="num-cuota" min="1" placeholder="1">
+      </div>
+      <div class="form-group">
+        <label for="monto-cuota">Monto de la cuota (COP)</label>
+        <input type="number" id="monto-cuota" min="1000" step="1000" placeholder="250000">
+      </div>
+      <div class="form-group">
+        <label for="fecha-cuota">Fecha de vencimiento</label>
+        <input type="date" id="fecha-cuota">
+      </div>
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-top:1.25rem">
+      <button class="btn btn-secondary" style="flex:1" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" id="btn-guardar-cuota" onclick="guardarCuota()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal pago -->
+<div id="modal-pago" style="display:none;position:fixed;inset:0;background:rgba(13,27,62,0.5);z-index:200;align-items:center;justify-content:center">
+  <div class="card" style="width:100%;max-width:420px;margin:1rem">
+    <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:1.25rem">Registrar pago</h2>
+    <div class="alert" id="alerta-pago"></div>
+    <input type="hidden" id="pago-cuota-id">
+    <div class="form-grid una-col">
+      <div class="form-group">
+        <label for="monto-pago">Monto pagado (COP)</label>
+        <input type="number" id="monto-pago" min="1000" step="1000" placeholder="250000">
+      </div>
+      <div class="form-group">
+        <label for="metodo-pago">Método de pago</label>
+        <select id="metodo-pago">
+          <option value="transferencia">Transferencia</option>
+          <option value="efectivo">Efectivo</option>
+          <option value="pse">PSE</option>
+          <option value="nequi">Nequi / Daviplata</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="ref-pago">Referencia (opcional)</label>
+        <input type="text" id="ref-pago" placeholder="Nro. transacción">
+      </div>
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-top:1.25rem">
+      <button class="btn btn-secondary" style="flex:1" onclick="cerrarModalPago()">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" id="btn-guardar-pago" onclick="guardarPago()">Registrar pago</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = '';
+  const params = new URLSearchParams(location.search);
+  const prestamoId = params.get('id');
+
+  function cerrarSesion() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
+    window.location.href = '/static/login.html';
+  }
+
+  function fmt(num) {
+    return new Intl.NumberFormat('es-CO', { style:'currency', currency:'COP', maximumFractionDigits:0 }).format(num);
+  }
+
+  function fmtFecha(dt) {
+    if (!dt) return '—';
+    return new Date(dt + 'T00:00:00').toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' });
+  }
+
+  function badge(estado) {
+    const map = { pendiente:'badge-pendiente', aprobado:'badge-aprobado', rechazado:'badge-rechazado', activo:'badge-activo', pagada:'badge-pagada', vencida:'badge-vencida' };
+    return `<span class="badge ${map[estado] || 'badge-pendiente'}">${estado}</span>`;
+  }
+
+  // ── Cargar info préstamo ──
+  async function cargarPrestamo() {
+    if (!prestamoId) return window.location.href = '/static/prestamos.html';
+    try {
+      const res = await fetch(`${API}/prestamos/${prestamoId}`);
+      const p = await res.json();
+      if (!res.ok) throw new Error();
+
+      const interesTotal = parseFloat(p.monto) * (parseFloat(p.tasa_interes) / 100) * p.cantidad_cuotas;
+      const totalAPagar = parseFloat(p.monto) + interesTotal;
+
+      document.getElementById('info-prestamo').innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1.5rem">
+          <div>
+            <div class="stat-label">Monto prestado</div>
+            <div style="font-size:1.5rem;font-weight:700;font-family:'Space Mono',monospace;color:var(--azul-oscuro)">${fmt(p.monto)}</div>
+          </div>
+          <div>
+            <div class="stat-label">Tasa mensual</div>
+            <div style="font-size:1.5rem;font-weight:700;font-family:'Space Mono',monospace;color:var(--azul-oscuro)">${p.tasa_interes}%</div>
+          </div>
+          <div>
+            <div class="stat-label">Total a pagar</div>
+            <div style="font-size:1.5rem;font-weight:700;font-family:'Space Mono',monospace;color:var(--azul-acento)">${fmt(totalAPagar)}</div>
+          </div>
+          <div>
+            <div class="stat-label">Estado</div>
+            <div style="margin-top:0.25rem">${badge(p.estado)}</div>
+          </div>
+          <div>
+            <div class="stat-label">Cuotas</div>
+            <div style="font-size:1.5rem;font-weight:700;font-family:'Space Mono',monospace;color:var(--azul-oscuro)">${p.cantidad_cuotas}</div>
+          </div>
+        </div>
+      `;
+    } catch {
+      document.getElementById('info-prestamo').innerHTML = `<div class="alert alert-error show">Error al cargar el préstamo.</div>`;
+    }
+  }
+
+  // ── Cargar cuotas ──
+  async function cargarCuotas() {
+    try {
+      const res = await fetch(`${API}/prestamos/${prestamoId}/cuotas`);
+      const cuotas = await res.json();
+      const contenedor = document.getElementById('lista-cuotas');
+
+      if (cuotas.length === 0) {
+        contenedor.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>No hay cuotas registradas aún. Añade la primera cuota.</p></div>`;
+        return;
+      }
+
+      contenedor.innerHTML = cuotas.map(c => `
+        <div class="cuota-item">
+          <div class="cuota-num">${c.numero_cuota}</div>
+          <div class="cuota-info">
+            <div class="cuota-monto">${fmt(c.monto_cuota)}</div>
+            <div class="cuota-fecha">Vence: ${fmtFecha(c.fecha_vencimiento)}</div>
+          </div>
+          <div>${badge(c.estado_cuota)}</div>
+          ${c.estado_cuota !== 'pagada' ? `
+            <button class="btn btn-primary btn-sm" onclick="abrirModalPago('${c.id}', ${c.monto_cuota})">Pagar</button>
+          ` : `<span style="font-size:0.825rem;color:var(--verde)">✓ Pagada</span>`}
+          <a href="/static/pagos.html?cuota=${c.id}&prestamo=${prestamoId}" class="btn btn-secondary btn-sm">Ver pagos</a>
+        </div>
+      `).join('');
+    } catch {
+      document.getElementById('lista-cuotas').innerHTML = `<div class="alert alert-error show">Error al cargar cuotas.</div>`;
+    }
+  }
+
+  // ── Modal cuota ──
+  function abrirModalCuota() {
+    document.getElementById('modal-cuota').style.display = 'flex';
+  }
+  function cerrarModal() {
+    document.getElementById('modal-cuota').style.display = 'none';
+  }
+
+  async function guardarCuota() {
+    const btn = document.getElementById('btn-guardar-cuota');
+    btn.innerHTML = '<span class="loader"></span>';
+    btn.disabled = true;
+
+    const payload = {
+      prestamo_id: prestamoId,
+      numero_cuota: parseInt(document.getElementById('num-cuota').value),
+      monto_cuota: parseFloat(document.getElementById('monto-cuota').value),
+      fecha_vencimiento: document.getElementById('fecha-cuota').value,
+      estado_cuota: 'pendiente'
+    };
+
+    try {
+      const res = await fetch(`${API}/cuotas/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error');
+      cerrarModal();
+      cargarCuotas();
+    } catch (err) {
+      const el = document.getElementById('alerta-cuota');
+      el.textContent = err.message;
+      el.className = 'alert alert-error show';
+    }
+    btn.innerHTML = 'Guardar';
+    btn.disabled = false;
+  }
+
+  // ── Modal pago ──
+  function abrirModalPago(cuotaId, monto) {
+    document.getElementById('pago-cuota-id').value = cuotaId;
+    document.getElementById('monto-pago').value = monto;
+    document.getElementById('modal-pago').style.display = 'flex';
+  }
+  function cerrarModalPago() {
+    document.getElementById('modal-pago').style.display = 'none';
+  }
+
+  async function guardarPago() {
+    const btn = document.getElementById('btn-guardar-pago');
+    btn.innerHTML = '<span class="loader"></span>';
+    btn.disabled = true;
+
+    const payload = {
+      cuota_id: document.getElementById('pago-cuota-id').value,
+      monto_pagado: parseFloat(document.getElementById('monto-pago').value),
+      metodo_pago: document.getElementById('metodo-pago').value,
+      referencia_transaccion: document.getElementById('ref-pago').value || null
+    };
+
+    try {
+      const res = await fetch(`${API}/pagos/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error');
+      cerrarModalPago();
+      cargarCuotas();
+    } catch (err) {
+      const el = document.getElementById('alerta-pago');
+      el.textContent = err.message;
+      el.className = 'alert alert-error show';
+    }
+    btn.innerHTML = 'Registrar pago';
+    btn.disabled = false;
+  }
+
+  if (!localStorage.getItem('usuario')) window.location.href = '/static/login.html';
+
+  cargarPrestamo();
+  cargarCuotas();
+</script>
+</body>
+</html>

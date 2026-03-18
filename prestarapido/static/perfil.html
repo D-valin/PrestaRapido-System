@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mi Perfil — PrestaRápido</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .avatar {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--azul-medio), var(--azul-acento));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.75rem; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+    .perfil-header {
+      display: flex; align-items: center; gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .perfil-nombre { font-size: 1.4rem; font-weight: 700; color: var(--azul-oscuro); }
+    .perfil-email { font-size: 0.875rem; color: var(--gris-texto); }
+    .tabs { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--gris-suave); padding-bottom: 0; }
+    .tab-btn {
+      padding: 0.65rem 1.25rem; font-size: 0.9rem; font-weight: 600;
+      font-family: 'Sora', sans-serif;
+      background: none; border: none; cursor: pointer;
+      color: var(--gris-texto); border-bottom: 2px solid transparent;
+      margin-bottom: -2px; transition: all 0.2s;
+    }
+    .tab-btn.active { color: var(--azul-acento); border-bottom-color: var(--azul-acento); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .info-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.9rem 0; border-bottom: 1px solid var(--gris-suave); font-size: 0.9rem;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: var(--gris-texto); font-size: 0.825rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+    .info-valor { font-weight: 600; color: var(--azul-oscuro); }
+    .pass-req { font-size: 0.8rem; color: var(--gris-texto); margin-top: 0.4rem; }
+    .pass-req span { display: inline-block; margin-right: 0.75rem; }
+    .req-ok { color: var(--verde); }
+    .req-fail { color: #aab4cc; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/static/dashboard.html" class="navbar-logo">Presta<span>Rápido</span></a>
+  <div class="navbar-links">
+    <a href="/static/dashboard.html">Inicio</a>
+    <a href="/static/solicitar.html">Solicitar Crédito</a>
+    <a href="/static/prestamos.html">Mis Préstamos</a>
+    <a href="/static/perfil.html" class="active">Mi Perfil</a>
+    <a href="#" onclick="cerrarSesion()" class="btn-logout">Salir</a>
+  </div>
+</nav>
+
+<div class="page-wrapper fade-up" style="max-width:680px">
+
+  <!-- Header del perfil -->
+  <div class="perfil-header">
+    <div class="avatar" id="avatar">—</div>
+    <div>
+      <div class="perfil-nombre" id="perfil-nombre">Cargando...</div>
+      <div class="perfil-email" id="perfil-email"></div>
+      <div style="margin-top:0.4rem" id="perfil-estado"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="cambiarTab('info', this)">Información</button>
+      <button class="tab-btn" onclick="cambiarTab('editar', this)">Editar datos</button>
+      <button class="tab-btn" onclick="cambiarTab('password', this)">Cambiar contraseña</button>
+    </div>
+
+    <!-- Tab: Información -->
+    <div class="tab-panel active" id="tab-info">
+      <div id="info-contenido">
+        <div class="empty-state"><p>Cargando datos...</p></div>
+      </div>
+    </div>
+
+    <!-- Tab: Editar datos -->
+    <div class="tab-panel" id="tab-editar">
+      <div class="alert" id="alerta-editar"></div>
+      <form id="form-editar">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="edit-nombre">Nombre completo</label>
+            <input type="text" id="edit-nombre" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-telefono">Teléfono</label>
+            <input type="tel" id="edit-telefono" placeholder="300 000 0000">
+          </div>
+          <div class="form-group full">
+            <label for="edit-email">Correo electrónico</label>
+            <input type="email" id="edit-email" required>
+          </div>
+        </div>
+        <div style="margin-top:1.5rem; display:flex; gap:0.75rem">
+          <button type="submit" class="btn btn-primary" id="btn-editar">Guardar cambios</button>
+          <button type="button" class="btn btn-secondary" onclick="cambiarTab('info', document.querySelector('.tab-btn'))">Cancelar</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Tab: Cambiar contraseña -->
+    <div class="tab-panel" id="tab-password">
+      <div class="alert" id="alerta-pass"></div>
+      <form id="form-password" autocomplete="off">
+        <div class="form-grid una-col">
+          <div class="form-group">
+            <label for="pass-actual">Contraseña actual</label>
+            <div style="position:relative">
+              <input type="password" id="pass-actual" placeholder="••••••••" required style="padding-right:2.5rem">
+              <button type="button" onclick="toggleVer('pass-actual')"
+                style="position:absolute;right:0.75rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--gris-texto)">👁</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="pass-nueva">Nueva contraseña</label>
+            <div style="position:relative">
+              <input type="password" id="pass-nueva" placeholder="Mínimo 8 caracteres" required minlength="8"
+                oninput="validarReqs()" style="padding-right:2.5rem">
+              <button type="button" onclick="toggleVer('pass-nueva')"
+                style="position:absolute;right:0.75rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--gris-texto)">👁</button>
+            </div>
+            <div class="pass-req">
+              <span id="req-len" class="req-fail">✗ 8+ caracteres</span>
+              <span id="req-num" class="req-fail">✗ Un número</span>
+              <span id="req-may" class="req-fail">✗ Una mayúscula</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="pass-confirmar">Confirmar nueva contraseña</label>
+            <input type="password" id="pass-confirmar" placeholder="Repite la nueva contraseña" required>
+          </div>
+        </div>
+        <div style="margin-top:1.5rem">
+          <button type="submit" class="btn btn-primary" id="btn-pass">Actualizar contraseña</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = '';
+  let usuarioId = null;
+
+  function cerrarSesion() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
+    window.location.href = '/static/login.html';
+  }
+
+  function cambiarTab(nombre, btnClicado) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-${nombre}`).classList.add('active');
+    btnClicado.classList.add('active');
+  }
+
+  function toggleVer(id) {
+    const inp = document.getElementById(id);
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  }
+
+  function validarReqs() {
+    const val = document.getElementById('pass-nueva').value;
+    const ok = (id, cond) => {
+      document.getElementById(id).className = cond ? 'req-ok' : 'req-fail';
+      document.getElementById(id).textContent = (cond ? '✓' : '✗') + document.getElementById(id).textContent.slice(1);
+    };
+    ok('req-len', val.length >= 8);
+    ok('req-num', /\d/.test(val));
+    ok('req-may', /[A-Z]/.test(val));
+  }
+
+  function mostrar(alertaId, msg, tipo = 'error') {
+    const el = document.getElementById(alertaId);
+    el.textContent = msg;
+    el.className = `alert alert-${tipo} show`;
+  }
+
+  function fmtFecha(dt) {
+    if (!dt) return '—';
+    return new Date(dt).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' });
+  }
+
+  // ── Cargar datos del usuario ──
+  async function cargar() {
+    const raw = localStorage.getItem('usuario');
+    if (!raw) return window.location.href = '/static/login.html';
+    const local = JSON.parse(raw);
+    usuarioId = local.id;
+
+    try {
+      const res = await fetch(`${API}/usuarios/${usuarioId}`);
+      const u = await res.json();
+
+      // Header
+      const iniciales = u.nombre_completo.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      document.getElementById('avatar').textContent = iniciales;
+      document.getElementById('perfil-nombre').textContent = u.nombre_completo;
+      document.getElementById('perfil-email').textContent = u.email;
+      document.getElementById('perfil-estado').innerHTML =
+        `<span class="badge ${u.estado_verificacion === 'verificado' ? 'badge-aprobado' : 'badge-pendiente'}">${u.estado_verificacion}</span>`;
+
+      // Tab info
+      document.getElementById('info-contenido').innerHTML = `
+        <div class="info-row">
+          <span class="info-label">Nombre completo</span>
+          <span class="info-valor">${u.nombre_completo}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Documento de identidad</span>
+          <span class="info-valor">${u.documento_identidad}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Correo electrónico</span>
+          <span class="info-valor">${u.email}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Teléfono</span>
+          <span class="info-valor">${u.telefono || '—'}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Estado de verificación</span>
+          <span class="info-valor"><span class="badge ${u.estado_verificacion === 'verificado' ? 'badge-aprobado' : 'badge-pendiente'}">${u.estado_verificacion}</span></span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Miembro desde</span>
+          <span class="info-valor">${fmtFecha(u.fecha_registro)}</span>
+        </div>
+      `;
+
+      // Pre-llenar form de edición
+      document.getElementById('edit-nombre').value = u.nombre_completo;
+      document.getElementById('edit-email').value = u.email;
+      document.getElementById('edit-telefono').value = u.telefono || '';
+
+      // Guardar en local actualizado
+      localStorage.setItem('usuario', JSON.stringify({ id: u.id, email: u.email, nombre_completo: u.nombre_completo }));
+    } catch {
+      document.getElementById('info-contenido').innerHTML = `<div class="alert alert-error show">Error al cargar los datos del perfil.</div>`;
+    }
+  }
+
+  // ── Guardar cambios de perfil ──
+  document.getElementById('form-editar').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-editar');
+    btn.innerHTML = '<span class="loader"></span> Guardando...';
+    btn.disabled = true;
+
+    const token = localStorage.getItem('token');
+    const payload = {
+      nombre_completo: document.getElementById('edit-nombre').value,
+      email: document.getElementById('edit-email').value,
+      telefono: document.getElementById('edit-telefono').value || null,
+    };
+
+    try {
+      const res = await fetch(`${API}/usuarios/${usuarioId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error al actualizar');
+      mostrar('alerta-editar', '¡Datos actualizados correctamente!', 'success');
+      await cargar();
+    } catch (err) {
+      mostrar('alerta-editar', err.message);
+    }
+    btn.innerHTML = 'Guardar cambios';
+    btn.disabled = false;
+  });
+
+  // ── Cambiar contraseña ──
+  document.getElementById('form-password').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-pass');
+
+    const nueva = document.getElementById('pass-nueva').value;
+    const confirmar = document.getElementById('pass-confirmar').value;
+    if (nueva !== confirmar) return mostrar('alerta-pass', 'Las contraseñas nuevas no coinciden');
+
+    btn.innerHTML = '<span class="loader"></span> Actualizando...';
+    btn.disabled = true;
+
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API}/auth/cambiar-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          password_actual: document.getElementById('pass-actual').value,
+          password_nueva: nueva
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error');
+      mostrar('alerta-pass', '¡Contraseña actualizada! Inicia sesión nuevamente.', 'success');
+      document.getElementById('form-password').reset();
+      setTimeout(cerrarSesion, 2500);
+    } catch (err) {
+      mostrar('alerta-pass', err.message);
+    }
+    btn.innerHTML = 'Actualizar contraseña';
+    btn.disabled = false;
+  });
+
+  cargar();
+</script>
+</body>
+</html>
