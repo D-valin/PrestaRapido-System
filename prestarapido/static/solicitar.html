@@ -5,9 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Solicitar Crédito — PrestaRápido</title>
   <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .eval-card {
+      border-radius: var(--radio-grande);
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+      display: none;
+      animation: fadeUp 0.4s ease;
+    }
+    .eval-card.show { display: block; }
+    .eval-aprobado  { background: rgba(22,163,74,0.07);  border: 1.5px solid rgba(22,163,74,0.25); }
+    .eval-revision  { background: rgba(217,119,6,0.07);  border: 1.5px solid rgba(217,119,6,0.3); }
+    .eval-rechazado { background: rgba(220,38,38,0.07);  border: 1.5px solid rgba(220,38,38,0.25); }
+    .eval-titulo { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; }
+    .eval-aprobado  .eval-titulo { color: var(--verde); }
+    .eval-revision  .eval-titulo { color: var(--amarillo); }
+    .eval-rechazado .eval-titulo { color: var(--rojo); }
+    .eval-row { display: flex; justify-content: space-between; font-size: 0.875rem; padding: 0.35rem 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+    .eval-row:last-child { border-bottom: none; }
+    .eval-key { color: var(--gris-texto); }
+    .eval-val { font-weight: 600; color: var(--azul-oscuro); }
+    .check-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; padding: 0.3rem 0; }
+    .check-ok  { color: var(--verde); }
+    .check-fail { color: var(--rojo); }
+    .check-warn { color: var(--amarillo); }
+    .riesgo-badge { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.9rem; border-radius: 99px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; }
+    .riesgo-bajo  { background: rgba(22,163,74,0.12);  color: var(--verde); }
+    .riesgo-medio { background: rgba(217,119,6,0.12);  color: var(--amarillo); }
+    .riesgo-alto  { background: rgba(220,38,38,0.12);  color: var(--rojo); }
+  </style>
 </head>
 <body>
-
 <nav class="navbar">
   <a href="/static/dashboard.html" class="navbar-logo">Presta<span>Rápido</span></a>
   <div class="navbar-links">
@@ -21,102 +49,67 @@
 
 <div class="page-wrapper fade-up">
   <h1 class="section-title">Solicitar un crédito</h1>
-  <p class="section-sub">Completa el formulario. El simulador calculará automáticamente los totales.</p>
+  <p class="section-sub">Completa el formulario. El sistema evaluará tu elegibilidad según las reglas de negocio antes de aceptar la solicitud.</p>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
-
-    <!-- Formulario -->
-    <div class="card">
-      <div class="alert" id="alerta"></div>
-
-      <form id="form-solicitud">
-        <div class="form-grid una-col">
-          <div class="form-group">
-            <label for="monto">Monto a solicitar (COP)</label>
-            <input type="number" id="monto" placeholder="500000" min="100000" step="50000" required oninput="simular()">
+    <div>
+      <div class="card">
+        <div class="alert" id="alerta"></div>
+        <form id="form-solicitud">
+          <div class="form-grid una-col">
+            <div class="form-group">
+              <label for="monto">Monto a solicitar (COP)</label>
+              <input type="number" id="monto" placeholder="500000" min="100000" step="50000" required oninput="onCambioCampo()">
+            </div>
+            <div class="form-group">
+              <label for="cuotas">Número de cuotas (máx. 3)</label>
+              <select id="cuotas" required onchange="onCambioCampo()">
+                <option value="">Selecciona...</option>
+                <option value="1">1 mes</option>
+                <option value="2">2 meses</option>
+                <option value="3">3 meses</option>
+              </select>
+            </div>
           </div>
-          <div class="form-group">
-            <label for="cuotas">Número de cuotas</label>
-            <select id="cuotas" required onchange="simular()">
-              <option value="">Selecciona...</option>
-              <option value="1">1 mes</option>
-              <option value="2">2 meses</option>
-              <option value="3">3 meses</option>
-            </select>
+          <div style="margin-top:1.5rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+            <button type="button" class="btn btn-secondary" id="btn-evaluar" onclick="evaluarSolicitud()">🔍 Evaluar elegibilidad</button>
+            <button type="submit" class="btn btn-primary" id="btn-solicitar" disabled>Enviar solicitud</button>
           </div>
-          <div class="form-group">
-            <label for="tasa">Tasa de interés mensual (%)</label>
-            <select id="tasa" required onchange="simular()">
-              <option value="">Selecciona según tu score...</option>
-              <option value="1.5">1.5% — Score Alto 🟢</option>
-              <option value="2.8">2.8% — Score Medio 🟡</option>
-              <option value="4.2">4.2% — Score Alto riesgo 🔴</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="metodo">Método de pago</label>
-            <select id="metodo" required>
-              <option value="">Selecciona...</option>
-              <option value="transferencia">Transferencia bancaria</option>
-              <option value="efectivo">Efectivo</option>
-              <option value="pse">PSE</option>
-              <option value="nequi">Nequi / Daviplata</option>
-            </select>
-          </div>
-        </div>
-
-        <div style="margin-top:1.5rem">
-          <button type="submit" class="btn btn-primary btn-full" id="btn-solicitar">
-            Enviar solicitud
-          </button>
-        </div>
-      </form>
+        </form>
+        <div class="eval-card" id="eval-resultado"></div>
+      </div>
     </div>
 
-    <!-- Simulador -->
     <div>
       <div class="card" style="margin-bottom:1rem">
-        <div style="font-weight:700;font-size:1rem;margin-bottom:0.5rem;color:var(--azul-oscuro)">📊 Simulador de crédito</div>
-        <p style="font-size:0.85rem;color:var(--gris-texto)">Los valores se calculan automáticamente al llenar el formulario.</p>
-      </div>
-
-      <div class="simulador-resultado" id="simulador">
-        <div class="sim-row">
-          <span class="sim-label">Monto solicitado</span>
-          <span class="sim-val" id="s-monto">—</span>
-        </div>
-        <div class="sim-row">
-          <span class="sim-label">Tasa mensual</span>
-          <span class="sim-val" id="s-tasa">—</span>
-        </div>
-        <div class="sim-row">
-          <span class="sim-label">Interés total</span>
-          <span class="sim-val" id="s-interes">—</span>
-        </div>
-        <div class="sim-row">
-          <span class="sim-label">Cuotas</span>
-          <span class="sim-val" id="s-cuotas">—</span>
-        </div>
-        <div class="sim-row">
-          <span class="sim-label">Valor de cada cuota</span>
-          <span class="sim-val" id="s-cuota-val">—</span>
-        </div>
-        <div class="sim-row">
-          <span class="sim-label">Total a pagar</span>
-          <span class="sim-val grande" id="s-total">—</span>
+        <div style="font-weight:700;font-size:1rem;margin-bottom:0.5rem;color:var(--azul-oscuro)">📊 Simulador</div>
+        <p style="font-size:0.85rem;color:var(--gris-texto);margin-bottom:1rem">La tasa real la asigna el sistema según tu nivel de riesgo tras la evaluación.</p>
+        <div class="simulador-resultado" id="simulador">
+          <div class="sim-row"><span class="sim-label">Monto solicitado</span><span class="sim-val" id="s-monto">—</span></div>
+          <div class="sim-row"><span class="sim-label">Tasa mensual</span><span class="sim-val" id="s-tasa">—</span></div>
+          <div class="sim-row"><span class="sim-label">Interés total</span><span class="sim-val" id="s-interes">—</span></div>
+          <div class="sim-row"><span class="sim-label">Cuotas</span><span class="sim-val" id="s-cuotas">—</span></div>
+          <div class="sim-row"><span class="sim-label">Valor por cuota</span><span class="sim-val" id="s-cuota-val">—</span></div>
+          <div class="sim-row"><span class="sim-label">Total a pagar</span><span class="sim-val grande" id="s-total">—</span></div>
         </div>
       </div>
 
-      <!-- Condiciones -->
-      <div class="card" style="margin-top:1rem;background:var(--azul-claro);border-color:var(--azul-acento)">
-        <div style="font-weight:700;font-size:0.875rem;color:var(--azul-medio);margin-bottom:0.75rem">📋 Condiciones de elegibilidad</div>
-        <ul style="list-style:none;display:flex;flex-direction:column;gap:0.5rem;font-size:0.825rem;color:var(--azul-medio)">
-          <li>✅ Edad entre 21 y 65 años</li>
-          <li>✅ Ingreso mensual mayor a $0</li>
-          <li>✅ Score crediticio evaluado automáticamente</li>
-          <li>✅ Plazo máximo: 3 meses</li>
-          <li>✅ Sin reportes en centrales de riesgo</li>
-        </ul>
+      <div class="card" style="background:var(--azul-claro);border-color:var(--azul-acento)">
+        <div style="font-weight:700;font-size:0.875rem;color:var(--azul-medio);margin-bottom:0.75rem">📋 Reglas de evaluación automática</div>
+        <div style="font-size:0.825rem;color:var(--azul-medio);display:flex;flex-direction:column;gap:0.4rem">
+          <div>✅ <strong>Edad:</strong> entre 21 y 65 años (RNF-01)</div>
+          <div>✅ <strong>Ingreso mensual</strong> mayor a $0 (RNF-01)</div>
+          <div>✅ <strong>Score plataforma</strong> mínimo 40/100 (RNF-03)</div>
+          <div>✅ <strong>Monto</strong> dentro del límite por nivel de riesgo (RNF-05)</div>
+          <div>✅ <strong>Plazo</strong> máximo 3 meses (RNF-06)</div>
+          <div>🟢 <strong>Ratio deuda/ingreso &lt;40%</strong> → aprobado (RNF-04)</div>
+          <div>🟡 <strong>Ratio 40–70%</strong> → en revisión (RNF-08)</div>
+          <div>❌ <strong>Ratio ≥70%</strong> → rechazado automático (RNF-04)</div>
+          <hr style="border:none;border-top:1px solid rgba(37,99,235,0.2);margin:0.25rem 0">
+          <div>🟢 <strong>Riesgo bajo</strong> (score ≥80): tasa 1.5%, hasta $10M</div>
+          <div>🟡 <strong>Riesgo medio</strong> (score 40–79): tasa 2.8%, hasta $5M</div>
+          <div>🔴 <strong>Riesgo alto</strong> (score &lt;40): rechazado (RNF-07)</div>
+        </div>
       </div>
     </div>
   </div>
@@ -124,6 +117,8 @@
 
 <script>
   const API = '';
+  let evaluacionValida = false;
+  let tasaAsignada = null;
 
   function cerrarSesion() {
     localStorage.removeItem('token');
@@ -135,59 +130,135 @@
     return new Intl.NumberFormat('es-CO', { style:'currency', currency:'COP', maximumFractionDigits:0 }).format(num);
   }
 
-  function simular() {
-    const monto = parseFloat(document.getElementById('monto').value) || 0;
-    const cuotas = parseInt(document.getElementById('cuotas').value) || 0;
-    const tasa = parseFloat(document.getElementById('tasa').value) || 0;
-
-    if (!monto || !cuotas || !tasa) return;
-
-    const interes = monto * (tasa / 100) * cuotas;
-    const total = monto + interes;
-    const cuotaVal = total / cuotas;
-
-    document.getElementById('s-monto').textContent = fmt(monto);
-    document.getElementById('s-tasa').textContent = `${tasa}%`;
-    document.getElementById('s-interes').textContent = fmt(interes);
-    document.getElementById('s-cuotas').textContent = cuotas;
-    document.getElementById('s-cuota-val').textContent = fmt(cuotaVal);
-    document.getElementById('s-total').textContent = fmt(total);
-
-    const sim = document.getElementById('simulador');
-    sim.classList.add('show');
-  }
-
   function mostrar(msg, tipo = 'error') {
     const el = document.getElementById('alerta');
     el.textContent = msg;
     el.className = `alert alert-${tipo} show`;
-    el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+
+  function onCambioCampo() {
+    simular();
+    evaluacionValida = false;
+    document.getElementById('btn-solicitar').disabled = true;
+    document.getElementById('eval-resultado').className = 'eval-card';
+  }
+
+  function simular() {
+    const monto = parseFloat(document.getElementById('monto').value) || 0;
+    const cuotas = parseInt(document.getElementById('cuotas').value) || 0;
+    if (!monto || !cuotas) return;
+    const tasa = tasaAsignada || 2.8;
+    const interes = monto * (tasa / 100) * cuotas;
+    const total = monto + interes;
+    document.getElementById('s-monto').textContent = fmt(monto);
+    document.getElementById('s-tasa').textContent = `${tasa}% mensual`;
+    document.getElementById('s-interes').textContent = fmt(interes);
+    document.getElementById('s-cuotas').textContent = cuotas;
+    document.getElementById('s-cuota-val').textContent = fmt((total / cuotas));
+    document.getElementById('s-total').textContent = fmt(total);
+    document.getElementById('simulador').classList.add('show');
+  }
+
+  async function evaluarSolicitud() {
+    const raw = localStorage.getItem('usuario');
+    if (!raw) return window.location.href = '/static/login.html';
+    const usuario = JSON.parse(raw);
+    const monto = parseFloat(document.getElementById('monto').value);
+    const cuotas = parseInt(document.getElementById('cuotas').value);
+    if (!monto || !cuotas) return mostrar('Completa el monto y las cuotas antes de evaluar');
+
+    const btn = document.getElementById('btn-evaluar');
+    btn.innerHTML = '<span class="loader" style="border-top-color:var(--azul-oscuro)"></span> Evaluando...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(`${API}/prestamos/evaluar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario_id: usuario.id, monto, cantidad_cuotas: cuotas })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Error al evaluar');
+      mostrarResultado(data);
+    } catch (err) {
+      mostrar(err.message);
+    }
+    btn.innerHTML = '🔍 Evaluar elegibilidad';
+    btn.disabled = false;
+  }
+
+  function mostrarResultado(ev) {
+    const estado = ev.estado_final;
+    const d = ev.detalles || {};
+    const clases = { aprobado:'eval-aprobado', en_revision:'eval-revision', rechazado:'eval-rechazado' };
+    const iconos = { aprobado:'✅', en_revision:'🟡', rechazado:'❌' };
+    const textos = { aprobado:'Solicitud Aprobada', en_revision:'En Revisión Manual', rechazado:'Solicitud Rechazada' };
+
+    const checks = [
+      { ok: d.rnf01_edad_ok,    label: `Edad: ${d.edad ?? '—'} años` },
+      { ok: d.rnf01_ingreso_ok, label: `Ingreso mensual registrado` },
+      { ok: ev.score_plataforma >= 40, label: `Score plataforma: ${ev.score_plataforma}/100` },
+      { ok: d.rnf05_monto_ok,   label: `Monto dentro del límite (${d.monto_maximo_permitido ? fmt(d.monto_maximo_permitido) : '—'})` },
+      { ok: d.rnf06_plazo_ok,   label: `Plazo permitido (máx. ${ev.cuotas_maximas} meses)` },
+      {
+        ok: d.ratio_endeudamiento !== undefined ? d.ratio_endeudamiento < 0.7 : null,
+        warn: d.ratio_endeudamiento !== undefined ? (d.ratio_endeudamiento >= 0.4 && d.ratio_endeudamiento < 0.7) : false,
+        label: `Ratio endeudamiento: ${d.ratio_endeudamiento !== undefined ? (d.ratio_endeudamiento*100).toFixed(1)+'%' : '—'}`
+      },
+    ];
+
+    let checksHTML = checks.map(c => {
+      const cls = c.ok === null ? '' : c.warn ? 'check-warn' : c.ok ? 'check-ok' : 'check-fail';
+      const ico = c.ok === null ? '○' : c.warn ? '⚠️' : c.ok ? '✓' : '✗';
+      return `<div class="check-row ${cls}">${ico} ${c.label}</div>`;
+    }).join('');
+
+    let extra = '';
+    if (estado === 'rechazado') {
+      extra = `<div style="margin-top:0.75rem;padding:0.75rem;background:rgba(220,38,38,0.06);border-radius:8px;font-size:0.875rem;color:var(--rojo)">${ev.motivo_rechazo}</div>`;
+    } else if (estado === 'en_revision') {
+      extra = `<div style="margin-top:0.75rem;padding:0.75rem;background:rgba(217,119,6,0.06);border-radius:8px;font-size:0.875rem;color:var(--amarillo)">Tu ratio de endeudamiento está en zona gris. Un asesor revisará tu solicitud.</div>`;
+      tasaAsignada = parseFloat(ev.tasa_interes); simular();
+    } else {
+      tasaAsignada = parseFloat(ev.tasa_interes); simular();
+    }
+
+    let detallesGrid = '';
+    if (estado !== 'rechazado') {
+      const rbl = ev.nivel_riesgo ? `<span class="riesgo-badge riesgo-${ev.nivel_riesgo}">● ${ev.nivel_riesgo}</span>` : '—';
+      detallesGrid = `
+        <hr style="border:none;border-top:1px solid rgba(0,0,0,0.07);margin:1rem 0">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;font-size:0.875rem">
+          <div class="eval-row"><span class="eval-key">Nivel de riesgo</span><span class="eval-val">${rbl}</span></div>
+          <div class="eval-row"><span class="eval-key">Tasa asignada</span><span class="eval-val">${ev.tasa_interes}% mensual</span></div>
+          <div class="eval-row"><span class="eval-key">Monto máximo</span><span class="eval-val">${ev.monto_maximo ? fmt(ev.monto_maximo) : '—'}</span></div>
+          <div class="eval-row"><span class="eval-key">Score</span><span class="eval-val">${ev.score_plataforma}/100</span></div>
+        </div>`;
+    }
+
+    const contenedor = document.getElementById('eval-resultado');
+    contenedor.innerHTML = `<div class="eval-titulo">${iconos[estado]} ${textos[estado]}</div>${checksHTML}${extra}${detallesGrid}`;
+    contenedor.className = `eval-card show ${clases[estado]}`;
+
+    evaluacionValida = estado !== 'rechazado';
+    document.getElementById('btn-solicitar').disabled = !evaluacionValida;
+    if (evaluacionValida) document.getElementById('alerta').className = 'alert';
   }
 
   document.getElementById('form-solicitud').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const btn = document.getElementById('btn-solicitar');
-
+    if (!evaluacionValida) return mostrar('Primero evalúa tu elegibilidad');
     const raw = localStorage.getItem('usuario');
-    if (!raw) return window.location.href = '/static/login.html';
     const usuario = JSON.parse(raw);
     const token = localStorage.getItem('token');
-
-    const monto = parseFloat(document.getElementById('monto').value);
-    const cuotas = parseInt(document.getElementById('cuotas').value);
-    const tasa = parseFloat(document.getElementById('tasa').value);
-
-    if (cuotas > 3) return mostrar('El plazo máximo permitido es de 3 meses.');
-
-    btn.innerHTML = '<span class="loader"></span> Enviando solicitud...';
+    const btn = document.getElementById('btn-solicitar');
+    btn.innerHTML = '<span class="loader"></span> Enviando...';
     btn.disabled = true;
 
     const payload = {
       usuario_id: usuario.id,
-      monto: monto,
-      tasa_interes: tasa,
-      cantidad_cuotas: cuotas,
-      estado: 'pendiente'
+      monto: parseFloat(document.getElementById('monto').value),
+      cantidad_cuotas: parseInt(document.getElementById('cuotas').value),
     };
 
     try {
@@ -197,9 +268,11 @@
         body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Error al crear la solicitud');
-
-      mostrar('¡Solicitud enviada exitosamente! Redirigiendo a tus préstamos...', 'success');
+      if (!res.ok) {
+        if (data.detail?.evaluacion) mostrarResultado(data.detail.evaluacion);
+        throw new Error(data.detail?.motivo || data.detail || 'Error al crear la solicitud');
+      }
+      mostrar(`¡Solicitud ${data.estado} exitosamente! Redirigiendo...`, 'success');
       setTimeout(() => window.location.href = '/static/prestamos.html', 2000);
     } catch (err) {
       mostrar(err.message);
@@ -208,7 +281,6 @@
     }
   });
 
-  // Verificar sesión
   if (!localStorage.getItem('usuario')) window.location.href = '/static/login.html';
 </script>
 </body>

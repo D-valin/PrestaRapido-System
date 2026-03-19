@@ -4,11 +4,13 @@ from fastapi.responses import RedirectResponse
 import os
 from db import get_connection, crear_tablas
 from auth import router as auth_router, get_usuario_actual, hashear_password
+from evaluacion import evaluar_solicitud, generar_cuotas
 from models import (
     UsuarioCreate, UsuarioUpdate, UsuarioOut,
     PrestamoCreate, PrestamoUpdate, PrestamoOut,
     CuotaCreate, CuotaUpdate, CuotaOut,
     PagoCreate, PagoUpdate, PagoOut,
+    EvaluacionOut,
 )
 
 app = FastAPI(
@@ -44,13 +46,15 @@ def crear_usuario(usuario: UsuarioCreate):
         cur.execute("""
             INSERT INTO usuarios (
                 documento_identidad, nombre_completo, email,
-                telefono, password_hash, estado_verificacion
+                telefono, password_hash, estado_verificacion,
+                fecha_nacimiento, ingreso_mensual
             )
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id;
         """, (
             usuario.documento_identidad, usuario.nombre_completo, usuario.email,
             usuario.telefono, hashear_password(usuario.password_hash), usuario.estado_verificacion,
+            usuario.fecha_nacimiento, usuario.ingreso_mensual,
         ))
         nuevo_id = cur.fetchone()[0]
         conn.commit()
@@ -69,7 +73,8 @@ def obtener_usuarios():
     cur = conn.cursor()
     cur.execute("""
         SELECT id, documento_identidad, nombre_completo, email,
-               telefono, estado_verificacion, fecha_registro
+               telefono, estado_verificacion, fecha_registro,
+               fecha_nacimiento, ingreso_mensual
         FROM usuarios
         ORDER BY fecha_registro DESC;
     """)
@@ -80,6 +85,7 @@ def obtener_usuarios():
         UsuarioOut(
             id=str(r[0]), documento_identidad=r[1], nombre_completo=r[2],
             email=r[3], telefono=r[4], estado_verificacion=r[5], fecha_registro=r[6],
+            fecha_nacimiento=r[7], ingreso_mensual=r[8],
         ) for r in rows
     ]
 
@@ -90,7 +96,8 @@ def obtener_usuario(usuario_id: str):
     cur = conn.cursor()
     cur.execute("""
         SELECT id, documento_identidad, nombre_completo, email,
-               telefono, estado_verificacion, fecha_registro
+               telefono, estado_verificacion, fecha_registro,
+               fecha_nacimiento, ingreso_mensual
         FROM usuarios WHERE id = %s;
     """, (usuario_id,))
     row = cur.fetchone()
@@ -101,6 +108,7 @@ def obtener_usuario(usuario_id: str):
     return UsuarioOut(
         id=str(row[0]), documento_identidad=row[1], nombre_completo=row[2],
         email=row[3], telefono=row[4], estado_verificacion=row[5], fecha_registro=row[6],
+        fecha_nacimiento=row[7], ingreso_mensual=row[8],
     )
 
 
@@ -153,8 +161,47 @@ def eliminar_usuario(usuario_id: str, _=Depends(get_usuario_actual)):
 #  PRESTAMOS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@app.post("/prestamos/", tags=["Préstamos"], summary="Crear un préstamo")
+@app.post("/prestamos/evaluar", tags=["Préstamos"], summary="Evaluar elegibilidad sin crear préstamo")
+def evaluar_prestamo(prestamo: PrestamoCreate):
+    """Corre todas las reglas de negocio RNF-01..08 y devuelve el resultado sin persistir nada."""
+    resultado = evaluar_solicitud(
+        usuario_id=prestamo.usuario_id,
+        monto=prestamo.monto,
+        cantidad_cuotas=prestamo.cantidad_cuotas,
+    )
+    return resultado
+
+
+@app.post("/prestamos/", tags=["Préstamos"], summary="Crear un préstamo (con evaluación automática)")
 def crear_prestamo(prestamo: PrestamoCreate):
+    """
+    Evalúa la solicitud con las reglas RNF-01..08.
+    - Si es 'rechazado': devuelve 422 con el motivo.
+    - Si es 'aprobado' o 'en_revision': crea el préstamo y genera las cuotas automáticamente.
+    La tasa de interés es asignada por el sistema según el nivel de riesgo, ignorando
+    cualquier valor enviado por el cliente.
+    """
+    # ── Evaluación ──────────────────────────────────────────────────────────
+    resultado = evaluar_solicitud(
+        usuario_id=prestamo.usuario_id,
+        monto=prestamo.monto,
+        cantidad_cuotas=prestamo.cantidad_cuotas,
+    )
+
+    if resultado["estado_final"] == "rechazado":
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "estado": "rechazado",
+                "motivo": resultado["motivo_rechazo"],
+                "evaluacion": resultado,
+            }
+        )
+
+    # La tasa la asigna el backend, no el cliente
+    tasa_asignada = resultado["tasa_interes"]
+    estado_prestamo = resultado["estado_final"]  # 'aprobado' o 'en_revision'
+
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -166,13 +213,34 @@ def crear_prestamo(prestamo: PrestamoCreate):
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id;
         """, (
-            prestamo.usuario_id, prestamo.monto, prestamo.tasa_interes,
-            prestamo.cantidad_cuotas, prestamo.estado,
+            prestamo.usuario_id, prestamo.monto, tasa_asignada,
+            prestamo.cantidad_cuotas, estado_prestamo,
             prestamo.fecha_desembolso, prestamo.proximo_vencimiento,
         ))
-        nuevo_id = cur.fetchone()[0]
+        nuevo_id = str(cur.fetchone()[0])
         conn.commit()
-        return {"mensaje": "Préstamo creado exitosamente", "id": str(nuevo_id)}
+
+        # ── Generar cuotas automáticamente si está aprobado ──────────────────
+        if estado_prestamo == "aprobado":
+            generar_cuotas(
+                prestamo_id=nuevo_id,
+                monto=prestamo.monto,
+                tasa_interes=tasa_asignada,
+                cantidad_cuotas=prestamo.cantidad_cuotas,
+            )
+
+        return {
+            "mensaje": f"Solicitud {estado_prestamo} correctamente",
+            "id": nuevo_id,
+            "estado": estado_prestamo,
+            "tasa_asignada": float(tasa_asignada),
+            "nivel_riesgo": resultado["nivel_riesgo"],
+            "score_plataforma": resultado["score_plataforma"],
+            "cuotas_generadas": prestamo.cantidad_cuotas if estado_prestamo == "aprobado" else 0,
+            "evaluacion": resultado,
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=400, detail=str(e))

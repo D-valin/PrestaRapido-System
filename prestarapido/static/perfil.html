@@ -101,6 +101,14 @@
             <label for="edit-email">Correo electrónico</label>
             <input type="email" id="edit-email" required>
           </div>
+          <div class="form-group">
+            <label for="edit-nacimiento">Fecha de nacimiento</label>
+            <input type="date" id="edit-nacimiento">
+          </div>
+          <div class="form-group">
+            <label for="edit-ingreso">Ingreso mensual (COP)</label>
+            <input type="number" id="edit-ingreso" min="0" step="50000" placeholder="1500000">
+          </div>
         </div>
         <div style="margin-top:1.5rem; display:flex; gap:0.75rem">
           <button type="submit" class="btn btn-primary" id="btn-editar">Guardar cambios</button>
@@ -188,6 +196,10 @@
     el.className = `alert alert-${tipo} show`;
   }
 
+  function fmt(num) {
+    return new Intl.NumberFormat('es-CO', { style:'currency', currency:'COP', maximumFractionDigits:0 }).format(num);
+  }
+
   function fmtFecha(dt) {
     if (!dt) return '—';
     return new Date(dt).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -235,6 +247,14 @@
           <span class="info-valor"><span class="badge ${u.estado_verificacion === 'verificado' ? 'badge-aprobado' : 'badge-pendiente'}">${u.estado_verificacion}</span></span>
         </div>
         <div class="info-row">
+          <span class="info-label">Fecha de nacimiento</span>
+          <span class="info-valor">${u.fecha_nacimiento ? fmtFecha(u.fecha_nacimiento) : '<span style="color:var(--rojo);font-size:0.8rem">⚠ Requerida para solicitar créditos</span>'}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Ingreso mensual</span>
+          <span class="info-valor">${u.ingreso_mensual ? fmt(u.ingreso_mensual) : '<span style="color:var(--rojo);font-size:0.8rem">⚠ Requerido para solicitar créditos</span>'}</span>
+        </div>
+        <div class="info-row">
           <span class="info-label">Miembro desde</span>
           <span class="info-valor">${fmtFecha(u.fecha_registro)}</span>
         </div>
@@ -244,6 +264,8 @@
       document.getElementById('edit-nombre').value = u.nombre_completo;
       document.getElementById('edit-email').value = u.email;
       document.getElementById('edit-telefono').value = u.telefono || '';
+      document.getElementById('edit-nacimiento').value = u.fecha_nacimiento || '';
+      document.getElementById('edit-ingreso').value = u.ingreso_mensual || '';
 
       // Guardar en local actualizado
       localStorage.setItem('usuario', JSON.stringify({ id: u.id, email: u.email, nombre_completo: u.nombre_completo }));
@@ -264,6 +286,8 @@
       nombre_completo: document.getElementById('edit-nombre').value,
       email: document.getElementById('edit-email').value,
       telefono: document.getElementById('edit-telefono').value || null,
+      fecha_nacimiento: document.getElementById('edit-nacimiento').value || null,
+      ingreso_mensual: parseFloat(document.getElementById('edit-ingreso').value) || null,
     };
 
     try {

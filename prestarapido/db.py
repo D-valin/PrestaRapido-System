@@ -70,11 +70,19 @@ def crear_tablas():
             );
         """)
 
+        # ── Migración: columnas nuevas en usuarios ──────────────────────
+        cur.execute("""
+            ALTER TABLE usuarios
+                ADD COLUMN IF NOT EXISTS fecha_nacimiento DATE,
+                ADD COLUMN IF NOT EXISTS ingreso_mensual  NUMERIC(14,2);
+        """)
+
         conn.commit()
-        print("✅ Tablas creadas correctamente.")
+        print("✅ Tablas creadas y migradas correctamente.")
     except Exception as e:
         conn.rollback()
-        print(f"❌ Error al crear tablas: {e}")
+        print(f"❌ Error al crear/migrar tablas: {e}")
+        raise
     finally:
         cur.close()
         conn.close()
