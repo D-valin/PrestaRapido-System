@@ -85,7 +85,7 @@ DB_PORT=5432
 DB_NAME=prestarapidoz
 DB_USER=postgres
 DB_PASSWORD=tu_contraseña_aqui
-SECRET_KEY=cambia_esto_por_una_clave_secreta_segura
+SECRET_KEY=1gjh4f3gh24vhn2n4m5bm6h54jh64hjg4jgf
 ```
 
 > 🔒 **Importante:** Nunca subas el archivo `.env` a GitHub. Agrega `.env` a tu `.gitignore`.
