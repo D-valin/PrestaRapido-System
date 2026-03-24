@@ -1,0 +1,9 @@
+[build]
+builder = "nixpacks"
+# Railway will cd into this folder for install AND start
+rootDirectory = "prestarapido"
+
+[deploy]
+startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
