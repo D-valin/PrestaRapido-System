@@ -635,3 +635,9 @@ def eliminar_pago(pago_id: str):
     finally:
         cur.close()
         conn.close()
+import os
+import uvicorn
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))  # Railway usa PORT dinámico
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
