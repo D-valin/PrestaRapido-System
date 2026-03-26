@@ -326,7 +326,7 @@ def generar_cuotas(prestamo_id: str, monto: Decimal, tasa_interes: Decimal,
     """
     Genera automáticamente las cuotas de un préstamo aprobado.
     Fórmula: cuota_mensual = (monto * tasa/100 * n + monto) / n
-    Las fechas de vencimiento se calculan a partir de hoy + 1 mes por cuota.
+    Las fechas de vencimiento se calculan a partir de hoy + 1 semana por cuota.
     """
     cerrar = False
     if conn is None:
@@ -341,17 +341,8 @@ def generar_cuotas(prestamo_id: str, monto: Decimal, tasa_interes: Decimal,
 
         hoy = date.today()
         for i in range(1, cantidad_cuotas + 1):
-            # Vencimiento: mismo día del mes, i meses después
-            mes = hoy.month + i
-            anio = hoy.year + (mes - 1) // 12
-            mes = ((mes - 1) % 12) + 1
-            try:
-                vencimiento = date(anio, mes, hoy.day)
-            except ValueError:
-                # El día no existe en ese mes (ej. 31 en febrero) → último día
-                import calendar
-                ultimo_dia = calendar.monthrange(anio, mes)[1]
-                vencimiento = date(anio, mes, ultimo_dia)
+            # Vencimiento: 1 semana por cuota
+            vencimiento = hoy + timedelta(days=7 * i)
 
             cur.execute("""
                 INSERT INTO cuotas (prestamo_id, numero_cuota, monto_cuota,
