@@ -272,6 +272,17 @@
         if (data.detail?.evaluacion) mostrarResultado(data.detail.evaluacion);
         throw new Error(data.detail?.motivo || data.detail || 'Error al crear la solicitud');
       }
+      
+      if (data.url_factura) {
+        const link = document.createElement('a');
+        link.href = data.url_factura;
+        link.download = `Factura_Prestamo_${data.id.substring(0,8)}.pdf`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
       mostrar(`¡Solicitud ${data.estado} exitosamente! Redirigiendo...`, 'success');
       setTimeout(() => window.location.href = '/static/prestamos.html', 2000);
     } catch (err) {
