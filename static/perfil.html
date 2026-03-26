@@ -202,7 +202,8 @@
 
   function fmtFecha(dt) {
     if (!dt) return '—';
-    return new Date(dt).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' });
+    if (dt === 'Estas al dia!') return dt;
+    return new Date(dt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   // ── Cargar datos del usuario ──

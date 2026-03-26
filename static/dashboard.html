@@ -95,6 +95,7 @@
 
   function fmtFecha(dt) {
     if (!dt) return '—';
+    if (dt === 'Estas al dia!') return dt;
     return new Date(dt).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' });
   }
 
@@ -113,13 +114,13 @@
       const activos = prestamos.filter(p => p.estado === 'activo' || p.estado === 'aprobado').length;
       const total = prestamos.reduce((s, p) => s + parseFloat(p.monto), 0);
       const proxVenc = prestamos
-        .filter(p => p.proximo_vencimiento)
+        .filter(p => p.proximo_vencimiento && p.proximo_vencimiento !== 'Estas al dia!')
         .sort((a,b) => new Date(a.proximo_vencimiento) - new Date(b.proximo_vencimiento))[0];
 
       document.getElementById('stat-activos').textContent = activos;
       document.getElementById('stat-total').textContent = fmt(total);
       document.getElementById('stat-cuotas').textContent = prestamos.filter(p => p.estado === 'activo').length;
-      document.getElementById('stat-venc').textContent = proxVenc ? fmtFecha(proxVenc.proximo_vencimiento) : 'Sin vencimientos';
+      document.getElementById('stat-venc').textContent = proxVenc ? fmtFecha(proxVenc.proximo_vencimiento) : 'Estás al día';
 
       // Lista
       const contenedor = document.getElementById('lista-prestamos');
