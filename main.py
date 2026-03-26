@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
+from datetime import date, timedelta
 from db import get_connection, crear_tablas
 from auth import router as auth_router, get_usuario_actual, hashear_password
 from evaluacion import evaluar_solicitud, generar_cuotas
@@ -203,6 +204,12 @@ def crear_prestamo(prestamo: PrestamoCreate):
     tasa_asignada = resultado["tasa_interes"]
     estado_prestamo = resultado["estado_final"]  # 'aprobado' o 'en_revision'
 
+    fecha_desembolso = prestamo.fecha_desembolso
+    proximo_vencimiento = prestamo.proximo_vencimiento
+    if estado_prestamo == "aprobado":
+        fecha_desembolso = date.today()
+        proximo_vencimiento = date.today() + timedelta(days=7)
+
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -216,7 +223,7 @@ def crear_prestamo(prestamo: PrestamoCreate):
         """, (
             prestamo.usuario_id, prestamo.monto, tasa_asignada,
             prestamo.cantidad_cuotas, estado_prestamo,
-            prestamo.fecha_desembolso, prestamo.proximo_vencimiento,
+            fecha_desembolso, proximo_vencimiento,
         ))
         nuevo_id = str(cur.fetchone()[0])
         conn.commit()
@@ -247,7 +254,7 @@ def crear_prestamo(prestamo: PrestamoCreate):
                 "monto": prestamo.monto,
                 "tasa_interes": tasa_asignada,
                 "cantidad_cuotas": prestamo.cantidad_cuotas,
-                "fecha_desembolso": prestamo.fecha_desembolso
+                "fecha_desembolso": fecha_desembolso
             }
             url_factura = generar_factura_pdf(prestamo_data, usuario_data, cuotas_data)
 
