@@ -5,6 +5,7 @@ import os
 from db import get_connection, crear_tablas
 from auth import router as auth_router, get_usuario_actual, hashear_password
 from evaluacion import evaluar_solicitud, generar_cuotas
+from factura import generar_factura_pdf
 from models import (
     UsuarioCreate, UsuarioUpdate, UsuarioOut,
     PrestamoCreate, PrestamoUpdate, PrestamoOut,
@@ -220,6 +221,7 @@ def crear_prestamo(prestamo: PrestamoCreate):
         nuevo_id = str(cur.fetchone()[0])
         conn.commit()
 
+        url_factura = None
         # ── Generar cuotas automáticamente si está aprobado ──────────────────
         if estado_prestamo == "aprobado":
             generar_cuotas(
@@ -228,6 +230,26 @@ def crear_prestamo(prestamo: PrestamoCreate):
                 tasa_interes=tasa_asignada,
                 cantidad_cuotas=prestamo.cantidad_cuotas,
             )
+            # Generar factura PDF
+            cur.execute("SELECT nombre_completo, documento_identidad, email, telefono FROM usuarios WHERE id = %s", (prestamo.usuario_id,))
+            u_row = cur.fetchone()
+            usuario_data = {
+                "nombre_completo": u_row[0],
+                "documento_identidad": u_row[1],
+                "email": u_row[2],
+                "telefono": u_row[3]
+            }
+            cur.execute("SELECT numero_cuota, monto_cuota, fecha_vencimiento FROM cuotas WHERE prestamo_id = %s ORDER BY numero_cuota", (nuevo_id,))
+            c_rows = cur.fetchall()
+            cuotas_data = [{"numero_cuota": cr[0], "monto_cuota": cr[1], "fecha_vencimiento": cr[2]} for cr in c_rows]
+            prestamo_data = {
+                "id": nuevo_id,
+                "monto": prestamo.monto,
+                "tasa_interes": tasa_asignada,
+                "cantidad_cuotas": prestamo.cantidad_cuotas,
+                "fecha_desembolso": prestamo.fecha_desembolso
+            }
+            url_factura = generar_factura_pdf(prestamo_data, usuario_data, cuotas_data)
 
         return {
             "mensaje": f"Solicitud {estado_prestamo} correctamente",
@@ -238,6 +260,7 @@ def crear_prestamo(prestamo: PrestamoCreate):
             "score_plataforma": resultado["score_plataforma"],
             "cuotas_generadas": prestamo.cantidad_cuotas if estado_prestamo == "aprobado" else 0,
             "evaluacion": resultado,
+            "url_factura": url_factura,
         }
     except HTTPException:
         raise
