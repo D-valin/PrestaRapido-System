@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional, Literal
+from typing import Optional, Literal, Union
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -73,7 +73,7 @@ class PrestamoOut(BaseModel):
     cantidad_cuotas: int
     estado: str
     fecha_desembolso: Optional[datetime]
-    proximo_vencimiento: Optional[datetime]
+    proximo_vencimiento: Union[datetime, str, None]
 
 
 # ─── CUOTAS ──────────────────────────────────────────────────────────────────

@@ -295,7 +295,7 @@ def obtener_prestamos():
     return [
         PrestamoOut(
             id=str(r[0]), usuario_id=str(r[1]), monto=r[2], tasa_interes=r[3],
-            cantidad_cuotas=r[4], estado=r[5], fecha_desembolso=r[6], proximo_vencimiento=r[7],
+            cantidad_cuotas=r[4], estado=r[5], fecha_desembolso=r[6], proximo_vencimiento=r[7] if r[5] != 'pagado' else "Estas al dia!",
         ) for r in rows
     ]
 
@@ -316,7 +316,7 @@ def obtener_prestamo(prestamo_id: str):
         raise HTTPException(status_code=404, detail="Préstamo no encontrado")
     return PrestamoOut(
         id=str(row[0]), usuario_id=str(row[1]), monto=row[2], tasa_interes=row[3],
-        cantidad_cuotas=row[4], estado=row[5], fecha_desembolso=row[6], proximo_vencimiento=row[7],
+        cantidad_cuotas=row[4], estado=row[5], fecha_desembolso=row[6], proximo_vencimiento=row[7] if row[5] != 'pagado' else "Estas al dia!",
     )
 
 
@@ -336,7 +336,7 @@ def obtener_prestamos_usuario(usuario_id: str):
     return [
         PrestamoOut(
             id=str(r[0]), usuario_id=str(r[1]), monto=r[2], tasa_interes=r[3],
-            cantidad_cuotas=r[4], estado=r[5], fecha_desembolso=r[6], proximo_vencimiento=r[7],
+            cantidad_cuotas=r[4], estado=r[5], fecha_desembolso=r[6], proximo_vencimiento=r[7] if r[5] != 'pagado' else "Estas al dia!",
         ) for r in rows
     ]
 
@@ -547,9 +547,24 @@ def crear_pago(pago: PagoCreate):
         nuevo_id = cur.fetchone()[0]
         # Marcar la cuota como pagada automáticamente
         cur.execute(
-            "UPDATE cuotas SET estado_cuota = 'pagada' WHERE id = %s",
+            "UPDATE cuotas SET estado_cuota = 'pagada' WHERE id = %s RETURNING prestamo_id;",
             (pago.cuota_id,)
         )
+        prestamo_id = cur.fetchone()[0]
+
+        # Verificar si hay cuotas pendientes
+        cur.execute(
+            "SELECT COUNT(*) FROM cuotas WHERE prestamo_id = %s AND estado_cuota != 'pagada'",
+            (prestamo_id,)
+        )
+        pendientes = cur.fetchone()[0]
+
+        if pendientes == 0:
+            cur.execute(
+                "UPDATE prestamos SET estado = 'pagado', proximo_vencimiento = NULL WHERE id = %s",
+                (prestamo_id,)
+            )
+
         conn.commit()
         return {"mensaje": "Pago registrado exitosamente", "id": str(nuevo_id)}
     except Exception as e:
